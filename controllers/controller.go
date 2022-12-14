@@ -5,24 +5,24 @@ import (
 	"log"
 	"strings"
 
+	db "github.com/KrishKashiwala/go-crud-arch/database"
+	"github.com/KrishKashiwala/go-crud-arch/models"
 	"github.com/gin-gonic/gin"
 	_ "github.com/lib/pq"
-	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
+
+// create model
+type Customer struct {
+	gorm.Model
+	Name     string
+	Password string
+}
 
 var (
 	Name    string
 	Country string
 	Id      int
-)
-
-const (
-	User     = "postgres"
-	Password = "postgres"
-	Port     = "5432"
-	Host     = "localhost"
-	Database = "test"
 )
 
 type Users struct {
@@ -32,44 +32,42 @@ type Users struct {
 }
 
 var DB *gorm.DB
-var DSN string = "user=postgres password=postgres dbname=test port=5432 sslmode=disable "
 
 // CREATE QUERY
 func InsertUser(c *gin.Context) {
+	db := db.GetDB()
 	reqBody := json.NewDecoder(c.Request.Body)
-
-	//initialize db conn
-	DB, err := gorm.Open(postgres.Open(DSN), &gorm.Config{})
-	if err != nil {
-		log.Fatal("error occured while DB connection.")
-	}
 	//read from request body
-	var users Users
+	var users models.User
 	if err := reqBody.Decode(&users); err != nil {
-		log.Fatal("error occured while reading request body.")
+		log.Println(users)
+		log.Println("error occured while reading request body.")
 	}
 
 	//captilize all letters
 	users.Name = strings.ToUpper(users.Name)
 	users.Country = strings.ToUpper(users.Country)
 
+	// check if user already exists
+	var checkUser models.User
+	checkResult := DB.Select("name", "password").Table("user").Where("name = ?", users.Name).Scan(&checkUser)
+	if checkResult.RowsAffected != 0 {
+		log.Println("User already exists")
+	}
+
 	//insert query in test db
-	result := DB.Select("name", "country").Table("person").Create(&users)
+	result := db.Select("name", "password").Table("user").Create(&users)
 	log.Println(result)
 
 }
 
 // READ QUERY
 func GetAllUsers(c *gin.Context) []Users {
-	// initialize db conn
-	DB, err := gorm.Open(postgres.Open(DSN), &gorm.Config{})
-	if err != nil {
-		log.Fatal("error occured while DB connection.")
-	}
-
 	var users []Users
 	// select query from test db
-	result := DB.Select("name", "country").Table("person")
+	db := db.GetDB()
+	result := db.Select("name", "country").Table("person")
+	log.Println(result)
 	result.Scan(&users)
 	return users
 
@@ -78,11 +76,7 @@ func GetAllUsers(c *gin.Context) []Users {
 // UPDATE QUERY
 func UpdateUser(c *gin.Context) {
 	reqBody := json.NewDecoder(c.Request.Body)
-	//initialize db conn
-	DB, err := gorm.Open(postgres.Open(DSN), &gorm.Config{})
-	if err != nil {
-		log.Fatal("error occured while DB connection.")
-	}
+
 	//read from request body
 	var users Users
 	if err := reqBody.Decode(&users); err != nil {
@@ -101,18 +95,43 @@ func UpdateUser(c *gin.Context) {
 
 // DELETE QUERY
 func DeleteUser(c *gin.Context) {
+
+	db := db.GetDB()
 	reqBody := json.NewDecoder(c.Request.Body)
 
-	//initialize db conn
-	DB, err := gorm.Open(postgres.Open(DSN), &gorm.Config{})
-	if err != nil {
-		log.Fatal("error occured while DB connection.")
-	}
 	//read from request body
 	var users Users
 	if err := reqBody.Decode(&users); err != nil {
 		log.Fatal("error occured while reading request body.")
 	}
-	result := DB.Select("name", "country").Table("person").Where("name = ?", users.Name).Delete(&users)
+	result := db.Select("name", "country").Table("person").Where("name = ?", users.Name).Delete(&users)
 	log.Println(result)
+}
+
+// ADVANCED QUERIES
+
+func Login(c *gin.Context) Users {
+	user := SelectUser(c)
+	if len(user) == 0 {
+		log.Println("User not found")
+	}
+	return user[0]
+}
+
+// SELECT based on name
+func SelectUser(c *gin.Context) []Users {
+	reqBody := json.NewDecoder(c.Request.Body)
+	db := db.GetDB()
+	//read from request body
+	var users Users
+	if err := reqBody.Decode(&users); err != nil {
+		log.Fatal("error occured while reading request body.")
+	}
+
+	var user []Users
+	// select query from test db
+	result := db.Select("name", "country").Table("person").Where("name = ?", users.Name)
+	result.Scan(&user)
+	return user
+
 }

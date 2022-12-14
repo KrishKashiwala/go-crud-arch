@@ -2,10 +2,14 @@ package main
 
 import (
 	"log"
+	"time"
 
-	controller "github.com/KrishKashiwala/go-crud-arch/controllers"
+	db "github.com/KrishKashiwala/go-crud-arch/database"
+	"github.com/KrishKashiwala/go-crud-arch/routes"
 	"github.com/gin-gonic/gin"
+	cors "github.com/itsjamie/gin-cors"
 	"github.com/joho/godotenv"
+	"gorm.io/gorm"
 )
 
 func init() {
@@ -16,41 +20,28 @@ func init() {
 
 }
 
-func main() {
+type Repository struct {
+	DB *gorm.DB
+}
 
-	//print hello server
-	println("Hello Server")
+func main() {
+	// db connection
+	db.Setup()
+
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.Default()
+	// Set up CORS middleware options
+	router.Use(cors.Middleware(cors.Config{
+		Origins:         "*",
+		Methods:         "GET, PUT, POST, DELETE",
+		RequestHeaders:  "Origin, Authorization, Content-Type",
+		ExposedHeaders:  "",
+		MaxAge:          50 * time.Second,
+		Credentials:     false,
+		ValidateHeaders: false,
+	}))
+	routes.RouteServer(router)
 
-	group := router.Group("/api")
-
-	publicRoutes := group.Group("/public")
-	{
-
-		//get routes
-		publicRoutes.GET("/", func(c *gin.Context) {
-			c.JSON(200, gin.H{
-				"data": controller.GetAllUsers(c),
-			})
-
-		})
-
-		//post routes
-		publicRoutes.POST("/create", func(c *gin.Context) {
-			controller.InsertUser(c)
-		})
-
-		//update routes
-		publicRoutes.PUT("/update", func(c *gin.Context) {
-			controller.UpdateUser(c)
-		})
-
-		//delete routes
-		publicRoutes.DELETE("/delete", func(c *gin.Context) {
-			controller.DeleteUser(c)
-		})
-	}
 	router.Run()
 
 }
