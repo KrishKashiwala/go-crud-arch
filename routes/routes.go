@@ -2,6 +2,7 @@ package routes
 
 import (
 	controller "github.com/KrishKashiwala/go-crud-arch/controllers"
+	"github.com/KrishKashiwala/go-crud-arch/middlewares"
 	"github.com/gin-gonic/gin"
 )
 
@@ -26,9 +27,7 @@ func RouteServer(router *gin.Engine) {
 			controller.InsertUser(c)
 		})
 		publicRoutes.POST("/login", func(c *gin.Context) {
-			c.JSON(200, gin.H{
-				"data": controller.Login(c),
-			})
+			controller.Login(c)
 		})
 
 		//update routes
@@ -38,15 +37,20 @@ func RouteServer(router *gin.Engine) {
 
 		//delete routes
 		publicRoutes.DELETE("/delete", func(c *gin.Context) {
-			controller.DeleteUser(c)
+			result := controller.DeleteUser(c)
+			c.JSON(200, gin.H{
+				"msg": result,
+			})
 		})
 	}
 
 	//private routes
-	privateRoutes := router.Group("/api/private")
+	privateRoutes := router.Group("/api/private", middlewares.AuthValidate)
 	{
-		privateRoutes.POST("/signup", func(c *gin.Context) {
-
+		privateRoutes.GET("/", func(c *gin.Context) {
+			c.JSON(200, gin.H{
+				"secret_key_for_nuclear_code": "Hello World",
+			})
 		})
 
 	}
